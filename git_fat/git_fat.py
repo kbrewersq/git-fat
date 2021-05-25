@@ -15,9 +15,14 @@ import shutil
 import argparse
 import platform
 import stat
-import boto3
-import botocore
 import threading
+try:
+    import boto3
+    import botocore
+except ImportError:
+    print("If you intend to use s3 you need to add boto3 to your path")
+    boto3 = None
+    botocore = None
 
 
 _logging.basicConfig(format='%(levelname)s:%(filename)s: %(message)s')
@@ -497,10 +502,12 @@ class AWS_S3Backend(BackendInterface):
         region_name = self.kwargs.get(AWS_S3Backend.GITFAT_CONFIG_FILE_REGION_NAME_KEY, None)
         if region_name is None:
             raise RuntimeError("Your .gitfat [%s] config does not contain any '%s' key." %
-                               (AWS_S3Backend.BACKEND_KEY, AWS_S3Backend.GITFAT_CONFIG_FILE_REGION_NAME_KEY))
+                               (AWS_S3Backend.BACKEND_KEY,
+                               AWS_S3Backend.GITFAT_CONFIG_FILE_REGION_NAME_KEY))
         if len(region_name) == 0:
             raise RuntimeError("Your .gitfat [%s] config does not contain any value for the '%s' key: '%s'" %
-                               (AWS_S3Backend.BACKEND_KEY, AWS_S3Backend.GITFAT_CONFIG_FILE_REGION_NAME_KEY, region_name))
+                               (AWS_S3Backend.BACKEND_KEY,
+                                AWS_S3Backend.GITFAT_CONFIG_FILE_REGION_NAME_KEY, region_name))
         return region_name
 
     def get_transfer_threads_number(self, kwargs):
@@ -517,14 +524,17 @@ class AWS_S3Backend(BackendInterface):
         bucket_name = kwargs.get(AWS_S3Backend.GITFAT_CONFIG_FILE_BUCKET_KEY, None)
         if bucket_name is None:
             raise RuntimeError("Your .gitfat [%s] config does not contain any '%s' key." %
-                               (AWS_S3Backend.BACKEND_KEY, AWS_S3Backend.GITFAT_CONFIG_FILE_BUCKET_KEY))
+                               (AWS_S3Backend.BACKEND_KEY,
+                               AWS_S3Backend.GITFAT_CONFIG_FILE_BUCKET_KEY))
         if len(bucket_name) == 0:
             raise RuntimeError("Your .gitfat [%s] config does not contain any value for '%s' key." %
-                               (AWS_S3Backend.BACKEND_KEY, AWS_S3Backend.GITFAT_CONFIG_FILE_BUCKET_KEY))
+                               (AWS_S3Backend.BACKEND_KEY,
+                               AWS_S3Backend.GITFAT_CONFIG_FILE_BUCKET_KEY))
         try:
             if not (bucket_name in [bucket.name for bucket in self.aws_s3_resource.buckets.all()]):
                 raise RuntimeError(
-                    "Your .gitfat [%s] specified bucket does not exist in AWS S3" % AWS_S3Backend.BACKEND_KEY)
+                    "Your .gitfat [%s] specified bucket does not exist in AWS S3" %
+                    AWS_S3Backend.BACKEND_KEY)
         except botocore.exceptions.EndpointConnectionError, e:
             raise RuntimeError(
                 "Your .gitfat config contains an invalid region_name key value: %s" % str(e))
@@ -566,11 +576,15 @@ class AWS_S3Backend(BackendInterface):
     def get_credentials(self, kwargs):
         try:
             if self.has_credentials_file:
-                return self.read_credentials_from_file(
+                cc = self.read_credentials_from_file(
                     self.kwargs.get(AWS_S3Backend.GITFAT_CONFIG_AUTH_FILE_KEY),
                     self.kwargs.get(AWS_S3Backend.GITFAT_CONFIG_AUTH_FILE_SECTION_KEY, AWS_S3Backend.AWS_AUTH_FILE_DEFAULT_CONFIG))
+                if cc == ('None', 'None'):
+                    return None, None
+                return cc
             elif self.has_direct_credentials:
-                return self.kwargs[AWS_S3Backend.AWS_ACCESS_KEY], self.kwargs[AWS_S3Backend.AWS_ACCESS_SECRET_KEY]
+                return (self.kwargs[AWS_S3Backend.AWS_ACCESS_KEY],
+                        self.kwargs[AWS_S3Backend.AWS_ACCESS_SECRET_KEY])
             else:
                 return self.read_credentials_from_file(
                     os.path.expanduser(AWS_S3Backend.AWS_AUTH_FILE),
@@ -584,13 +598,15 @@ class AWS_S3Backend(BackendInterface):
         parser = cfgparser.SafeConfigParser()
         parser.read(file_path)
         try:
-            return parser.get(section, AWS_S3Backend.AWS_ACCESS_KEY), parser.get(section, AWS_S3Backend.AWS_ACCESS_SECRET_KEY)
+            return (parser.get(section, AWS_S3Backend.AWS_ACCESS_KEY),
+                    parser.get(section, AWS_S3Backend.AWS_ACCESS_SECRET_KEY))
         except cfgparser.NoSectionError:
             raise RuntimeError(
                 "AWS authentication file '%s' does not have section '%s'" % (file_path, section))
         except cfgparser.NoOptionError:
             raise RuntimeError("AWS authentication file section '%s' does not have proper keys setup (%s, and %s)" %
-                               (file_path, AWS_S3Backend.AWS_ACCESS_KEY, AWS_S3Backend.AWS_ACCESS_SECRET_KEY), section)
+                               (file_path, AWS_S3Backend.AWS_ACCESS_KEY,
+                               AWS_S3Backend.AWS_ACCESS_SECRET_KEY), section)
 
     def generic_transfer(self, file_list, direction="up"):
         def get_transfer_direction_str(direction):
