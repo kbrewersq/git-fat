@@ -455,17 +455,19 @@ class AWS_S3Backend(BackendInterface):
     AWS_ACCESS_SECRET_KEY = "aws_secret_access_key"
     GITFAT_CONFIG_FILE_REGION_NAME_KEY = "region_name"
     GITFAT_CONFIG_FILE_BUCKET_KEY = "bucket"
+    GITFAT_CONFIG_FILE_OBJECT_FOLDER = "object_folder"
     GITFAT_CONFIG_AUTH_FILE_KEY = "credentials_file"
     GITFAT_CONFIG_AUTH_FILE_SECTION_KEY = "credentials_file_section"
     GITFAT_DOWNLOAD_THREAD_NUM = 8
 
     class ThreadedTransfer(threading.Thread):
 
-        def __init__(self, aws_client, bucket, file_path, direction="up"):
+        def __init__(self, aws_client, bucket, file_path, opt_folder='', direction="up"):
             super(AWS_S3Backend.ThreadedTransfer, self).__init__()
             self.client = aws_client
             self.bucket = bucket
             self.file_name = os.path.basename(file_path)
+            self.opt_folder = opt_folder if opt_folder else ''
             self.file_path = file_path
             self.direction = direction
             self.success = True
@@ -473,21 +475,22 @@ class AWS_S3Backend(BackendInterface):
 
         def download(self):
             with open(self.file_path, "wb") as self.downloaded_file_fd:
+                git_fat_obj_loc = os.path.join(self.opt_folder, "gitfat-%s" % self.file_name)
+                print("object loc", git_fat_obj_loc)
                 try:
-                    self.client.download_fileobj(self.bucket, "gitfat-%s" %
-                                                 self.file_name, self.downloaded_file_fd)
+                    self.client.download_fileobj(self.bucket, git_fat_obj_loc,
+                        self.downloaded_file_fd)
                     os.chmod(self.file_path, int('444', 8) & ~umask())
                 except botocore.exceptions.ClientError, e:
                     if os.path.exists(self.file_path) and os.path.getsize(self.file_path) == 0:
                         os.unlink(self.file_path)
                     self.success = False
-                    self.err_msg = "Warning: Could not download file %s from remote\nWarning: Remote response: %s" % (
-                        self.file_name, str(e))
+                    self.err_msg = "Warning: Could not download file %s from remote\nWarning: Remote response: %s" % (self.file_name, str(e))
 
         def upload(self):
             with open(self.file_path, "r") as file_content_fd:
-                self.client.upload_fileobj(file_content_fd, self.bucket,
-                                           "gitfat-%s" % self.file_name)
+                git_fat_obj_loc = os.path.join(self.opt_folder, "gitfat-%s" % self.file_name)
+                self.client.upload_fileobj(file_content_fd, self.bucket, git_fat_obj_loc)
 
         def run(self):
             if self.direction == "up":
@@ -501,13 +504,11 @@ class AWS_S3Backend(BackendInterface):
     def get_region_name(self, kwargs):
         region_name = self.kwargs.get(AWS_S3Backend.GITFAT_CONFIG_FILE_REGION_NAME_KEY, None)
         if region_name is None:
-            raise RuntimeError("Your .gitfat [%s] config does not contain any '%s' key." %
-                               (AWS_S3Backend.BACKEND_KEY,
-                               AWS_S3Backend.GITFAT_CONFIG_FILE_REGION_NAME_KEY))
+            raise RuntimeError("Your .gitfat [%s] config does not contain any '%s' key." % (
+                AWS_S3Backend.AWS_ACCESS_KEY, AWS_S3Backend.GITFAT_CONFIG_FILE_REGION_NAME_KEY))
         if len(region_name) == 0:
-            raise RuntimeError("Your .gitfat [%s] config does not contain any value for the '%s' key: '%s'" %
-                               (AWS_S3Backend.BACKEND_KEY,
-                                AWS_S3Backend.GITFAT_CONFIG_FILE_REGION_NAME_KEY, region_name))
+            raise RuntimeError("Your .gitfat [%s] config does not contain any value for the '%s' key: '%s'" % (AWS_S3Backend.AWS_ACCESS_KEY,
+            AWS_S3Backend.GITFAT_CONFIG_FILE_REGION_NAME_KEY, region_name))
         return region_name
 
     def get_transfer_threads_number(self, kwargs):
@@ -523,14 +524,13 @@ class AWS_S3Backend(BackendInterface):
     def get_valid_s3_bucket_name(self, kwargs):
         bucket_name = kwargs.get(AWS_S3Backend.GITFAT_CONFIG_FILE_BUCKET_KEY, None)
         if bucket_name is None:
-            raise RuntimeError("Your .gitfat [%s] config does not contain any '%s' key." %
-                               (AWS_S3Backend.BACKEND_KEY,
-                               AWS_S3Backend.GITFAT_CONFIG_FILE_BUCKET_KEY))
+            raise RuntimeError("Your .gitfat [%s] config does not contain any '%s' key." % (
+                AWS_S3Backend.AWS_ACCESS_KEY, AWS_S3Backend.GITFAT_CONFIG_FILE_BUCKET_KEY))
         if len(bucket_name) == 0:
-            raise RuntimeError("Your .gitfat [%s] config does not contain any value for '%s' key." %
-                               (AWS_S3Backend.BACKEND_KEY,
-                               AWS_S3Backend.GITFAT_CONFIG_FILE_BUCKET_KEY))
+            raise RuntimeError("Your .gitfat [%s] config does not contain any value for '%s' key." % (
+                AWS_S3Backend.AWS_ACCESS_KEY, AWS_S3Backend.GITFAT_CONFIG_FILE_BUCKET_KEY))
         try:
+
             if not (bucket_name in [bucket.name for bucket in self.aws_s3_resource.buckets.all()]):
                 raise RuntimeError(
                     "Your .gitfat [%s] specified bucket does not exist in AWS S3" %
@@ -563,6 +563,11 @@ class AWS_S3Backend(BackendInterface):
         self.aws_s3_resource = self.aws_s3_session.resource("s3")
         self.aws_s3_client = self.aws_s3_resource.meta.client
         self.bucket_name = self.get_valid_s3_bucket_name(kwargs)
+        self.s3_object_folder = self.get_object_folder_name()
+
+    def get_object_folder_name(self):
+        ff = self.kwargs.get(AWS_S3Backend.GITFAT_CONFIG_FILE_OBJECT_FOLDER, "")
+        return ff
 
     @property
     def has_credentials_file(self):
@@ -604,9 +609,8 @@ class AWS_S3Backend(BackendInterface):
             raise RuntimeError(
                 "AWS authentication file '%s' does not have section '%s'" % (file_path, section))
         except cfgparser.NoOptionError:
-            raise RuntimeError("AWS authentication file section '%s' does not have proper keys setup (%s, and %s)" %
-                               (file_path, AWS_S3Backend.AWS_ACCESS_KEY,
-                               AWS_S3Backend.AWS_ACCESS_SECRET_KEY), section)
+            raise RuntimeError("AWS authentication file section '%s' does not have proper keys     setup (%s, and %s)" % (file_path, AWS_S3Backend.AWS_ACCESS_KEY,
+            AWS_S3Backend.AWS_ACCESS_SECRET_KEY), section)
 
     def generic_transfer(self, file_list, direction="up"):
         def get_transfer_direction_str(direction):
@@ -627,8 +631,11 @@ class AWS_S3Backend(BackendInterface):
                 next_file_idx_to_download += 1
                 num_slots_avail -= 1
                 downloader = AWS_S3Backend.ThreadedTransfer(
-                    self.aws_s3_client, self.bucket_name,
-                    file_to_download, direction=direction)
+                    self.aws_s3_client, 
+                    self.bucket_name,
+                    file_to_download, 
+                    opt_folder=self.s3_object_folder,
+                    direction=direction)
                 threads[id(downloader)] = downloader
                 downloader.start()
             else:
@@ -659,9 +666,11 @@ class AWS_S3Backend(BackendInterface):
         def retrieve_s3_stored_objects_ids(self):
             print("Retrieving remote file list ...")
             bucket = self.aws_s3_resource.Bucket(self.bucket_name)
-            return [obj.key.split('-')[1] for obj in bucket.objects.filter(Prefix="gitfat-")]
+            prefx = "%s/gitfat-" % self.s3_object_folder if self.s3_object_folder else "gitfat-"
+            return [obj.key.split('-')[-1] for obj in bucket.objects.filter(Prefix=prefx)]
+        file_ids = retrieve_s3_stored_objects_ids(self)
         files_to_upload = [ os.path.join(self.base_dir, file_path)
-                           for file_path in list(set(file_list) - set(retrieve_s3_stored_objects_ids(self)))]
+            for file_path in list(set(file_list) - set(file_ids))]
         num_files = len(files_to_upload)
         if num_files == 0:
             print("No files to upload ...")
@@ -1009,7 +1018,7 @@ class GitFat(object):
 
         old_ga, ga_mode, ga_stno = self._get_old_gitattributes()
         ga_hashobj = git('hash-object -w --stdin'.split(), stdin=sub.PIPE,
-                         stdout=sub.PIPE)
+                       stdout=sub.PIPE)
         # Add lines to the .gitattributes file
         new_ga = old_ga + ['{0} filter=fat -text'.format(f) for f in newfiles]
         stdout, _ = ga_hashobj.communicate('\n'.join(new_ga) + '\n')

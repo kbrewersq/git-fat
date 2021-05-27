@@ -126,6 +126,11 @@ Another available option than ``[rsync]`` is Amazon Web Services S3 storage ``[a
     ##  If none of the above credentials methods are specified, the default
     ## AWS boto3 python API credentials file will be used: ~/.aws/credentials.
     ## Default section is 'default', but you can specify whatever name.
+    ## if you set aws_access_key_id/aws_secret_access_key to "none" you can utilize an user set by
+    ## export AWS_PROFILE=profile_name
+    #
+    ## optional folder name on the s3 bucket can be passed via:
+    # object_folder = name_of_folder or "" defaults to "" 
 
 The credentials file should contain entries like:
 
