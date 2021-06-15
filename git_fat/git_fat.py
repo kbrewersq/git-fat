@@ -1,7 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- mode:python -*-
 
-from __future__ import print_function, with_statement
 
 import hashlib
 import os
@@ -9,7 +8,7 @@ import subprocess as sub
 import sys
 import tempfile
 import warnings
-import ConfigParser as cfgparser
+import configparser as cfgparser
 import logging as _logging  # Use logger.error(), not logging.error()
 import shutil
 import argparse
@@ -68,10 +67,10 @@ def get_log_level(log_level_string):
     if not log_level_string:
         return _logging.WARNING
     levels = {'debug': _logging.DEBUG,
-              'info': _logging.INFO,
-              'warning': _logging.WARNING,
-              'error': _logging.ERROR,
-              'critical': _logging.CRITICAL}
+                'info': _logging.INFO,
+                'warning': _logging.WARNING,
+                'error': _logging.ERROR,
+                'critical': _logging.CRITICAL}
     if log_level_string in levels:
         return levels[log_level_string]
     else:
@@ -93,7 +92,7 @@ def git(cliargs, *args, **kwargs):
         sys.stderr.flush()
     if GIT_FAT_LOG_LEVEL == _logging.DEBUG:
         logger.debug('{}'.format(' '.join(['git'] + cliargs))
-                     + ' ({}, {})'.format(args, kwargs))
+                    + ' ({}, {})'.format(args, kwargs))
     return sub.Popen(['git'] + cliargs, *args, **kwargs)
 
 
@@ -181,12 +180,22 @@ def readblocks(stream):
         data = stream.read(BLOCK_SIZE)
         if not data:
             break
-        yield data
+        try:
+            xx = data.decode('utf-8')
+        except:
+            xx = data
+        yield xx
 
 
 def cat_iter(initer, outstream):
     for block in initer:
-        outstream.write(block)
+        print('catiter', type(block))
+        try:
+            outstream.write(block)
+        except:
+            
+            outstream.write(str(block, 'utf-8'))
+
 
 
 def cat(instream, outstream):
@@ -219,7 +228,7 @@ def _config_path(path=None):
         root = sub.check_output('git rev-parse --show-toplevel'.split()).strip()
     except sub.CalledProcessError:
         raise RuntimeError('git-fat must be run from a git directory')
-    default_path = os.path.join(root, '.gitfat')
+    default_path = os.path.join(str(root, 'utf-8'), '.gitfat')
     path = path or default_path
     return path
 
@@ -227,28 +236,29 @@ def _config_path(path=None):
 def _obj_dir():
     try:
         gitdir = sub.check_output('git rev-parse --git-dir'.split()).strip()
+
     except sub.CalledProcessError:
         raise RuntimeError('git-fat must be run from a git directory')
-    objdir = os.path.join(gitdir, 'fat', 'objects')
+    objdir = os.path.join(str(gitdir, 'utf-8'), 'fat', 'objects')
     return objdir
 
 
 def http_get(baseurl, filename, user=None, password=None):
     ''' Returns file descriptor for http file stream, catches urllib2 errors '''
-    import urllib2
+    import urllib
     try:
         print("Downloading: {0}".format(filename))
         geturl = '/'.join([baseurl, filename])
         if user is None:
-            res = urllib2.urlopen(geturl)
+            res = urllib.request.urlopen(geturl)
         else:
-            mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
+            mgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
             mgr.add_password(None, baseurl, user, password)
-            handler = urllib2.HTTPBasicAuthHandler(mgr)
-            opener = urllib2.build_opener(handler)
+            handler = urllib.request.HTTPBasicAuthHandler(mgr)
+            opener = urllib.request.build_opener(handler)
             res = opener.open(geturl)
         return res.fp
-    except urllib2.URLError as e:
+    except urllib.error.URLError as e:
         logger.warning(e.reason + ': {0}'.format(geturl))
         return None
 
@@ -291,7 +301,7 @@ class CopyBackend(BackendInterface):
         if not os.path.isdir(other_path):
             raise RuntimeError('copybackend target path is not directory: {}'.format(other_path))
         logger.debug("CopyBackend: other_path={}, base_dir={}"
-                     .format(other_path, base_dir))
+                    .format(other_path, base_dir))
         self.other_path = other_path
         self.base_dir = base_dir
 
@@ -481,11 +491,12 @@ class AWS_S3Backend(BackendInterface):
                     self.client.download_fileobj(self.bucket, git_fat_obj_loc,
                         self.downloaded_file_fd)
                     os.chmod(self.file_path, int('444', 8) & ~umask())
-                except botocore.exceptions.ClientError, e:
+                except botocore.exceptions.ClientError as e:
                     if os.path.exists(self.file_path) and os.path.getsize(self.file_path) == 0:
                         os.unlink(self.file_path)
                     self.success = False
-                    self.err_msg = "Warning: Could not download file %s from remote\nWarning: Remote response: %s" % (self.file_name, str(e))
+                    self.err_msg = "Warning: Could not download file %s from remote\nWarning: Remote response: %s" % (
+                        self.file_name, str(e))
 
         def upload(self):
             with open(self.file_path, "r") as file_content_fd:
@@ -518,7 +529,7 @@ class AWS_S3Backend(BackendInterface):
             if transfer_num_threads <= 0:
                 raise ValueError("The transfer_num_threads value must be a positive integer")
             return transfer_num_threads
-        except ValueError, e:
+        except ValueError as e:
             raise RuntimeError("transfer_num_threads: Bad value: %s" % str(e))
 
     def get_valid_s3_bucket_name(self, kwargs):
@@ -534,11 +545,11 @@ class AWS_S3Backend(BackendInterface):
             if not (bucket_name in [bucket.name for bucket in self.aws_s3_resource.buckets.all()]):
                 raise RuntimeError(
                     "Your .gitfat [%s] specified bucket does not exist in AWS S3" %
-                    AWS_S3Backend.BACKEND_KEY)
-        except botocore.exceptions.EndpointConnectionError, e:
+                    AWS_S3Backend.AWS_ACCESS_KEY)
+        except botocore.exceptions.EndpointConnectionError as e:
             raise RuntimeError(
                 "Your .gitfat config contains an invalid region_name key value: %s" % str(e))
-        except botocore.exceptions.ClientError, e:
+        except botocore.exceptions.ClientError as e:
             if "InvalidAccessKeyId" in str(e):
                 raise RuntimeError(
                     "You seem not to have an valid AWS S3 access key setup: %s" % str(e))
@@ -594,13 +605,13 @@ class AWS_S3Backend(BackendInterface):
                 return self.read_credentials_from_file(
                     os.path.expanduser(AWS_S3Backend.AWS_AUTH_FILE),
                     AWS_S3Backend.AWS_AUTH_FILE_DEFAULT_CONFIG)
-        except RuntimeError, e:
+        except RuntimeError as e:
             raise RuntimeError("Credentials improperly configured (%s)" % str(e))
 
     def read_credentials_from_file(self, file_path, section):
         if not os.path.exists(file_path):
             raise RuntimeError("AWS authentication file '%s' not found" % file_path)
-        parser = cfgparser.SafeConfigParser()
+        parser = cfgparser.ConfigParser()
         parser.read(file_path)
         try:
             return (parser.get(section, AWS_S3Backend.AWS_ACCESS_KEY),
@@ -631,9 +642,9 @@ class AWS_S3Backend(BackendInterface):
                 next_file_idx_to_download += 1
                 num_slots_avail -= 1
                 downloader = AWS_S3Backend.ThreadedTransfer(
-                    self.aws_s3_client, 
+                    self.aws_s3_client,
                     self.bucket_name,
-                    file_to_download, 
+                    file_to_download,
                     opt_folder=self.s3_object_folder,
                     direction=direction)
                 threads[id(downloader)] = downloader
@@ -641,7 +652,7 @@ class AWS_S3Backend(BackendInterface):
             else:
                 if next_file_idx_to_download >= num_files and len(threads) == 0:
                     break
-                for thread in threads.values():
+                for thread in list(threads.values()):
                     if thread.is_alive():
                         continue
                     else:
@@ -669,6 +680,7 @@ class AWS_S3Backend(BackendInterface):
             prefx = "%s/gitfat-" % self.s3_object_folder if self.s3_object_folder else "gitfat-"
             return [obj.key.split('-')[-1] for obj in bucket.objects.filter(Prefix=prefx)]
         file_ids = retrieve_s3_stored_objects_ids(self)
+        print("file ids from s3", file_ids)
         files_to_upload = [ os.path.join(self.base_dir, file_path)
             for file_path in list(set(file_list) - set(file_ids))]
         num_files = len(files_to_upload)
@@ -715,7 +727,7 @@ class GitFat(object):
             self._format = self._cookie + '{digest}\n'
 
         # considers the git-fat version when generating the magic length
-        def _ml(fn): return len(fn(hashlib.sha1('dummy').hexdigest(), 5))
+        def _ml(fn): return len(fn(hashlib.sha1(b'dummy').hexdigest(), 5))
         self._magiclen = _ml(self._encode)
 
         self.configure()
@@ -841,11 +853,11 @@ class GitFat(object):
             # Revlist prints all objects (commits, trees, blobs) but blobs have the file path
             # next to the git objecthash
             # Handle files with spaces
-            hashobj, _, filename = hashobj.partition(' ')
+            hashobj, _, filename = hashobj.partition(b' ')
             if filename:
                 # If the object is one we're managing
                 if hashobj in hashes:
-                    yield hashobj, filename
+                    yield str(hashobj,'utf-8'), str(filename,'utf-8')
 
         revlist.wait()
 
@@ -867,11 +879,11 @@ class GitFat(object):
         # filenames above, but was running into the memory buffer issue
         # Instead we just make another call to rev-list.  Takes more time, but still
         # only takes 5 seconds to traverse the entire history of a 22k commit repo
-        filedict = dict(self._find_paths(managed.keys()))
+        filedict = dict(self._find_paths(list(managed.keys())))
 
         # return a dict(git-fat hash -> filename)
         # git's objhash are the keys in `managed` and `filedict`
-        ret = dict((j, filedict[i]) for i, j in managed.iteritems())
+        ret = dict((j, filedict[i]) for i, j in managed.items())
         return ret
 
     def _orphan_files(self, patterns=None):
@@ -880,7 +892,8 @@ class GitFat(object):
         '''
         patterns = patterns or []
         # Null-terminated for proper file name handling (spaces)
-        for fname in sub.check_output(['git', 'ls-files', '-z'] + patterns).split('\x00')[:-1]:
+        xx = sub.check_output([b'git', b'ls-files', b'-z'] + patterns)
+        for fname in xx.split(b'\x00')[:-1]:
             if not os.path.exists(fname):
                 continue
             st = os.lstat(fname)
@@ -889,6 +902,7 @@ class GitFat(object):
             with open(fname, "rb") as f:
                 digest = self._get_digest(f)
             if digest:
+                print('yield orphan', digest, fname)
                 yield (digest, fname)
 
     def _filter_smudge(self, instream, outstream):
@@ -954,7 +968,7 @@ class GitFat(object):
         Public command to do the clean (should only be called by git)
         '''
         logger.debug("CLEAN: cur_file={}, unused_kwargs={}"
-                     .format(cur_file, unused_kwargs))
+                    .format(cur_file, unused_kwargs))
         if cur_file and not self.can_clean_file(cur_file):
             logger.info(
                 "Not adding: {0}. ".format(cur_file) +
@@ -985,7 +999,7 @@ class GitFat(object):
             # files are of blob type
             if objtype == 'blob' and int(objsize) > size:
                 objsizedict[objhash] = objsize
-        for objhash, objpath in self._find_paths(objsizedict.keys()):
+        for objhash, objpath in self._find_paths(list(objsizedict.keys())):
             print(objhash, objsizedict[objhash], objpath)
 
     def _parse_ls_files(self, line):
@@ -1018,7 +1032,7 @@ class GitFat(object):
 
         old_ga, ga_mode, ga_stno = self._get_old_gitattributes()
         ga_hashobj = git('hash-object -w --stdin'.split(), stdin=sub.PIPE,
-                       stdout=sub.PIPE)
+                        stdout=sub.PIPE)
         # Add lines to the .gitattributes file
         new_ga = old_ga + ['{0} filter=fat -text'.format(f) for f in newfiles]
         stdout, _ = ga_hashobj.communicate('\n'.join(new_ga) + '\n')
@@ -1081,7 +1095,7 @@ class GitFat(object):
         Command to list the files by fat-digest -> gitroot relative path
         '''
         managed = self._managed_files(**kwargs)
-        for f in managed.keys():
+        for f in list(managed.keys()):
             print(f, managed.get(f))
 
     def _remove_orphan_file(self, fname):
@@ -1145,19 +1159,17 @@ class GitFat(object):
     def pull(self, patterns=None, **kwargs):
         """ Get orphans, call backend pull """
         cached_objs = self._cached_objects()
-
         # TODO: Why use _orphan _and_ _referenced here?
         if patterns:
             # filter the working tree by a pattern
-            files = set(digest for digest, fname in self._orphan_files(
-                patterns=patterns)) - cached_objs
+            orphans = set(digest for digest, fname in self._orphan_files(patterns=patterns))
+            files = orphans - cached_objs
         else:
             # default pull any object referenced but not stored
             files = self._referenced_objects(**kwargs) - cached_objs
 
         logger.debug("PULL: patterns={}, kwargs={}, len(files)={}"
-                     .format(patterns, kwargs, len(files)))
-
+                    .format(patterns, kwargs, len(files)))
         if not self.backend.pull_files(files):
             sys.exit(1)
         self.checkout()
@@ -1168,7 +1180,7 @@ class GitFat(object):
         # checks HEAD for files)
         files = self._referenced_objects(**kwargs) & self._cached_objects()
         logger.debug("PUSH: unused_pattern={}, kwargs={}, len(files)={}"
-                     .format(unused_pattern, kwargs, len(files)))
+                    .format(unused_pattern, kwargs, len(files)))
         if not self.backend.push_files(files):
             sys.exit(1)
 
@@ -1208,7 +1220,7 @@ def _get_options(config, backend, cfg_file_path):
 
 
 def _read_config(cfg_file_path=None):
-    config = cfgparser.SafeConfigParser()
+    config = cfgparser.ConfigParser()
     if not os.path.exists(cfg_file_path):
         # Can't continue, but this isn't unusual
         logger.warning("This does not appear to be a repository managed by git-fat. "
@@ -1354,7 +1366,7 @@ def main():
         help='prevent adding excluded to .gitattributes', action='store_false')
     sp.set_defaults(func='index_filter')
 
-    if len(sys.argv) > 1 and sys.argv[1] in [c + 'version' for c in '', '-', '--']:
+    if len(sys.argv) > 1 and sys.argv[1] in [c + 'version' for c in ['', '-', '--']]:
         print(__version__)
         sys.exit(0)
 
