@@ -1,0 +1,122 @@
+0.1.1
+-----
+
+IMPROVEMENTS
+
+- Backwards compatibility with jedbrown's original git-fat format.
+
+0.2.0
+-----
+
+FEATURES
+
+- Re-Implemented jedbrown's index-filter and find functions
+- Added version command to check the current version
+
+0.2.1
+-----
+
+BUGFIXES
+
+- Fixed regression that caused old files to be converted in filter-clean
+
+0.2.2
+-----
+
+BUGFIXES
+
+- Fixed issue that prevented files from being found with the find command.
+
+0.2.3
+-----
+
+BUGFIXES
+
+- Fixed issue that can't allow to run system-wide installed ``git-fat`` script
+  under some types of isolated environments.
+
+0.2.4
+-----
+
+IMPROVEMENTS
+
+- Ability to run ``git fat version`` outside of git repositories
+
+BUGFIXES
+
+- python 2.6 format string compatability
+
+0.3.0
+-----
+
+IMPROVEMENTS
+
+- Much better testing infrastructure.  It's no longer a pain to add tests!
+
+FEATURES
+
+- Generic backend interface.  You can now specify which backend you want to use
+  when pulling by doing `git fat pull {backend}`
+- Added local copy backend
+- Added Command line option `-c` to specify config file to use
+
+BUGFIXES
+
+- Fixed stacktrace caused by a regression when adding the version option.
+  Thanks @madssj
+
+0.3.1
+-----
+
+BUGFIXES
+
+- Regression with git fat status would exit non-zero.
+
+0.3.2
+-----
+
+BUGFIXES
+
+- Fixed silent failure when using http and trying to push to a remote
+
+0.3.3
+-----
+
+BUGFIXES
+
+- Improved rsync error message.
+- Fix retroactive import (index-filter)
+- Only fail on some commands if .gitfat isn't present
+
+0.3.4
+-----
+
+INFO
+
+- Added note about fork status
+
+0.4.0
+-----
+
+BUGFIXES
+
+- Fix rsync command for directories with spaces
+
+FEATURES
+
+- Windows Support.  Thanks @CzarekTomczak!
+
+0.5.0
+-----
+
+BUGFIXES
+
+- Don't throw stacktrace when file is missing
+- Return success for copy backend when pulling
+
+FEATURES
+
+- Support partial pulls
+- Respect GIT_SSH environment variable
+- Improve the performance when pulling large amount of binaries
+- Add support for rsyncd shares to the rsync backend
