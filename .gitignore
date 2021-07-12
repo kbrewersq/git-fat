@@ -1,1 +1,11 @@
 *~
+*.pyc
+.coverage*
+htmlcov
+dist
+MANIFEST
+.tox
+*.egg*
+build/
+vs2013/
+*.log
