@@ -459,10 +459,12 @@ class AWS_S3Backend(BackendInterface):
     GITFAT_CONFIG_AUTH_FILE_KEY = "credentials_file"
     GITFAT_CONFIG_AUTH_FILE_SECTION_KEY = "credentials_file_section"
     GITFAT_DOWNLOAD_THREAD_NUM = 8
+    GITFAT_CONFIG_PREFIX = 'file_name_prefix'
+    DEFAULT_FILE_NAME_PREFIX = "gitfat-"
 
     class ThreadedTransfer(threading.Thread):
 
-        def __init__(self, aws_client, bucket, file_path, opt_folder='', direction="up"):
+        def __init__(self, aws_client, bucket, file_path, opt_folder='', file_prefix='gitfat-', direction="up"):
             super(AWS_S3Backend.ThreadedTransfer, self).__init__()
             self.client = aws_client
             self.bucket = bucket
@@ -472,10 +474,12 @@ class AWS_S3Backend(BackendInterface):
             self.direction = direction
             self.success = True
             self.err_msg = None
+            self.file_name_prefix = file_prefix
 
         def download(self):
             with open(self.file_path, "wb") as self.downloaded_file_fd:
-                git_fat_obj_loc = os.path.join(self.opt_folder, "gitfat-%s" % self.file_name)
+                git_fat_obj_loc = os.path.join(self.opt_folder, 
+                                            "%s%s" % (self.file_name_prefix, self.file_name))
                 print("object loc", git_fat_obj_loc)
                 try:
                     self.client.download_fileobj(self.bucket, git_fat_obj_loc,
@@ -489,7 +493,9 @@ class AWS_S3Backend(BackendInterface):
 
         def upload(self):
             with open(self.file_path, "r") as file_content_fd:
-                git_fat_obj_loc = os.path.join(self.opt_folder, "gitfat-%s" % self.file_name)
+                git_fat_obj_loc = os.path.join(self.opt_folder, 
+                                            "%s%s" % (self.file_name_prefix,self.file_name))
+                print("uploading", git_fat_obj_loc)
                 self.client.upload_fileobj(file_content_fd, self.bucket, git_fat_obj_loc)
 
         def run(self):
@@ -564,6 +570,14 @@ class AWS_S3Backend(BackendInterface):
         self.aws_s3_client = self.aws_s3_resource.meta.client
         self.bucket_name = self.get_valid_s3_bucket_name(kwargs)
         self.s3_object_folder = self.get_object_folder_name()
+        self.file_name_prefix = self.get_filename_prefix()
+
+    def get_filename_prefix(self):
+        ff = self.kwargs.get(AWS_S3Backend.GITFAT_CONFIG_PREFIX, None)
+        if ff is None:
+            return self.DEFAULT_FILE_NAME_PREFIX
+        else:
+            return ff
 
     def get_object_folder_name(self):
         ff = self.kwargs.get(AWS_S3Backend.GITFAT_CONFIG_FILE_OBJECT_FOLDER, "")
@@ -583,7 +597,8 @@ class AWS_S3Backend(BackendInterface):
             if self.has_credentials_file:
                 cc = self.read_credentials_from_file(
                     self.kwargs.get(AWS_S3Backend.GITFAT_CONFIG_AUTH_FILE_KEY),
-                    self.kwargs.get(AWS_S3Backend.GITFAT_CONFIG_AUTH_FILE_SECTION_KEY, AWS_S3Backend.AWS_AUTH_FILE_DEFAULT_CONFIG))
+                    self.kwargs.get(AWS_S3Backend.GITFAT_CONFIG_AUTH_FILE_SECTION_KEY, 
+                                    AWS_S3Backend.AWS_AUTH_FILE_DEFAULT_CONFIG))
                 if cc == ('None', 'None'):
                     return None, None
                 return cc
@@ -635,6 +650,7 @@ class AWS_S3Backend(BackendInterface):
                     self.bucket_name,
                     file_to_download, 
                     opt_folder=self.s3_object_folder,
+                    file_prefix=self.file_name_prefix,
                     direction=direction)
                 threads[id(downloader)] = downloader
                 downloader.start()
@@ -666,7 +682,11 @@ class AWS_S3Backend(BackendInterface):
         def retrieve_s3_stored_objects_ids(self):
             print("Retrieving remote file list ...")
             bucket = self.aws_s3_resource.Bucket(self.bucket_name)
-            prefx = "%s/gitfat-" % self.s3_object_folder if self.s3_object_folder else "gitfat-"
+            ff = self.file_name_prefix
+            if self.s3_object_folder:
+                prefx = "%s/%s" %(self.s3_object_folder, self.file_name_prefix)
+            else:
+                prefx = self.file_name_prefix
             return [obj.key.split('-')[-1] for obj in bucket.objects.filter(Prefix=prefx)]
         file_ids = retrieve_s3_stored_objects_ids(self)
         files_to_upload = [ os.path.join(self.base_dir, file_path)
