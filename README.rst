@@ -131,6 +131,10 @@ Another available option than ``[rsync]`` is Amazon Web Services S3 storage ``[a
     #
     ## optional folder name on the s3 bucket can be passed via:
     # object_folder = name_of_folder or "" defaults to "" 
+    #
+    ## optional to change the prefix of the files pushed to s3 
+    ## might be useful if you are changing between rsync and s3
+    # file_name_prefix='gitfat-' #defaults to 'gitfat-'
 
 The credentials file should contain entries like:
 
