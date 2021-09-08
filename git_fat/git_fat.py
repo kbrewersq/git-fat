@@ -492,9 +492,13 @@ class AWS_S3Backend(BackendInterface):
                     self.err_msg = "Warning: Could not download file %s from remote\nWarning: Remote response: %s" % (self.file_name, str(e))
 
         def upload(self):
+            git_fat_obj_loc = os.path.join(self.opt_folder, 
+                                        "%s%s" % (self.file_name_prefix,self.file_name))
+            obj_b = self.list_object_v2(Bucket=self.bucket, Prefix=git_fat_obj_loc)
+            if "Contents" in obj_b:
+                print('object already exists in fat_store%s'%git_fat_obj_loc)
+                return 
             with open(self.file_path, "r") as file_content_fd:
-                git_fat_obj_loc = os.path.join(self.opt_folder, 
-                                            "%s%s" % (self.file_name_prefix,self.file_name))
                 print("uploading", git_fat_obj_loc)
                 self.client.upload_fileobj(file_content_fd, self.bucket, git_fat_obj_loc)
 
