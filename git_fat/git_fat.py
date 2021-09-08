@@ -498,9 +498,10 @@ class AWS_S3Backend(BackendInterface):
                 self.success = False
                 self.err_msg = 'object already exists in fat_store%s'%git_fat_obj_loc
                 return 
-            with open(self.file_path, "r") as file_content_fd:
-                print("uploading", git_fat_obj_loc)
-                self.client.upload_fileobj(file_content_fd, self.bucket, git_fat_obj_loc)
+            if self.success:
+                with open(self.file_path, "r") as file_content_fd:
+                    print("uploading", git_fat_obj_loc)
+                    self.client.upload_fileobj(file_content_fd, self.bucket, git_fat_obj_loc)
 
         def run(self):
             if self.direction == "up":
