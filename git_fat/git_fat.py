@@ -494,7 +494,7 @@ class AWS_S3Backend(BackendInterface):
         def upload(self):
             git_fat_obj_loc = os.path.join(self.opt_folder, 
                                         "%s%s" % (self.file_name_prefix,self.file_name))
-            obj_b = self.list_object_v2(Bucket=self.bucket, Prefix=git_fat_obj_loc)
+            obj_b = self.client.list_object_v2(Bucket=self.bucket, Prefix=git_fat_obj_loc)
             if "Contents" in obj_b:
                 print('object already exists in fat_store%s'%git_fat_obj_loc)
                 return 
