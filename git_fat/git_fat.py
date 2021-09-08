@@ -465,7 +465,6 @@ class AWS_S3Backend(BackendInterface):
     class ThreadedTransfer(threading.Thread):
 
         def __init__(self, aws_client, bucket, file_path, opt_folder='', file_prefix='gitfat-', direction="up"):
-            super(AWS_S3Backend.ThreadedTransfer, self).__init__()
             self.client = aws_client
             self.bucket = bucket
             self.file_name = os.path.basename(file_path)
@@ -494,9 +493,10 @@ class AWS_S3Backend(BackendInterface):
         def upload(self):
             git_fat_obj_loc = os.path.join(self.opt_folder, 
                                         "%s%s" % (self.file_name_prefix,self.file_name))
-            obj_b = self.client.list_object_v2(Bucket=self.bucket, Prefix=git_fat_obj_loc)
+            obj_b = self.client.list_objects_v2(Bucket=self.bucket, Prefix=git_fat_obj_loc)
             if "Contents" in obj_b:
-                print('object already exists in fat_store%s'%git_fat_obj_loc)
+                self.success = False
+                self.err_msg = 'object already exists in fat_store%s'%git_fat_obj_loc
                 return 
             with open(self.file_path, "r") as file_content_fd:
                 print("uploading", git_fat_obj_loc)
