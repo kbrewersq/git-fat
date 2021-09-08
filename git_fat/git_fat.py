@@ -497,7 +497,7 @@ class AWS_S3Backend(BackendInterface):
             obj_b = self.client.list_objects_v2(Bucket=self.bucket, Prefix=git_fat_obj_loc)
             if "Contents" in obj_b:
                 self.success = False
-                self.err_msg = 'object already exists in fat_store%s'%git_fat_obj_loc
+                self.err_msg = 'object already exists in fatstore: %s'%git_fat_obj_loc
                 return 
             if self.success:
                 with open(self.file_path, "r") as file_content_fd:
