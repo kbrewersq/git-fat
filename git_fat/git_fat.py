@@ -24,6 +24,7 @@ except ImportError:
     boto3 = None
     botocore = None
 
+print('newest gitfat')
 
 _logging.basicConfig(format='%(levelname)s:%(filename)s: %(message)s')
 logger = _logging.getLogger(__name__)
