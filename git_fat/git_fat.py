@@ -24,7 +24,6 @@ except ImportError:
     boto3 = None
     botocore = None
 
-print('newest gitfat')
 
 _logging.basicConfig(format='%(levelname)s:%(filename)s: %(message)s')
 logger = _logging.getLogger(__name__)
@@ -466,6 +465,7 @@ class AWS_S3Backend(BackendInterface):
     class ThreadedTransfer(threading.Thread):
 
         def __init__(self, aws_client, bucket, file_path, opt_folder='', file_prefix='gitfat-', direction="up"):
+            super(AWS_S3Backend.ThreadedTransfer, self).__init__()
             self.client = aws_client
             self.bucket = bucket
             self.file_name = os.path.basename(file_path)
