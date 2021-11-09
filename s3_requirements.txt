@@ -1,0 +1,4 @@
+# to run the s3 portions of git-fat you need these on your python2 path
+
+boto3==1.17.78
+awscli
