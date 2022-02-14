@@ -17,7 +17,6 @@ import platform
 import stat
 import threading
 try:
-    import boto3
     import botocore
 except ImportError:
     print("If you intend to use s3 you need to add boto3 to your path")
@@ -566,6 +565,7 @@ class AWS_S3Backend(BackendInterface):
         return bucket_name
 
     def __init__(self, base_dir, **kwargs):
+        import boto3
         self.base_dir = base_dir
         self.kwargs = kwargs
         self.region_name = self.get_region_name(kwargs)
@@ -627,7 +627,15 @@ class AWS_S3Backend(BackendInterface):
                     os.path.expanduser(AWS_S3Backend.AWS_AUTH_FILE),
                     AWS_S3Backend.AWS_AUTH_FILE_DEFAULT_CONFIG)
         except RuntimeError, e:
-            raise RuntimeError("Credentials improperly configured (%s)" % str(e))
+            if self.has_env_credentials:
+                logger.info('Using environment Creds')
+                return None, None
+            else:
+                raise RuntimeError("Credentials improperly configured (%s)" % str(e))
+
+    @property
+    def has_env_credentials(self):
+        return "AWS_SECRET_ACCESS_KEY" in os.environ and "AWS_ACCESS_KEY_ID" in os.environ
 
     def read_credentials_from_file(self, file_path, section):
         if not os.path.exists(file_path):
