@@ -55,7 +55,7 @@ except ImportError:
 
     sub.check_output = backport_check_output
 
-__version__ = '0.5.1'
+__version__ = '0.5.2'
 
 BLOCK_SIZE = 4096
 
@@ -635,7 +635,9 @@ class AWS_S3Backend(BackendInterface):
 
     @property
     def has_env_credentials(self):
-        return "AWS_SECRET_ACCESS_KEY" in os.environ and "AWS_ACCESS_KEY_ID" in os.environ
+        return ("AWS_SECRET_ACCESS_KEY" in os.environ
+                and "AWS_ACCESS_KEY_ID" in os.environ) or ("AWS_PROFILE" in os.environ)
+
 
     def read_credentials_from_file(self, file_path, section):
         if not os.path.exists(file_path):
