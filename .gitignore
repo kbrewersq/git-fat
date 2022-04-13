@@ -9,3 +9,5 @@ MANIFEST
 build/
 vs2013/
 *.log
+
+.idea/*
