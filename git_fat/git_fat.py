@@ -738,7 +738,7 @@ class GitFat(object):
 
         # considers the git-fat version when generating the magic length
         def _ml(fn): return len(fn(hashlib.sha1(b'dummy').hexdigest(), 5))
-        self._magiclen = _ml(self._encode)
+        self._magiclen = _ml(self._get_placeholder)
 
         self.configure()
 
@@ -762,7 +762,7 @@ class GitFat(object):
         filters = gitconfig_get('filter.fat.clean') and gitconfig_get('filter.fat.smudge')
         return filters and reqs
 
-    def _encode(self, digest, size):
+    def _get_placeholder(self, digest, size):
         '''
         Produce str repr of file to be stored in repo.
         '''
@@ -971,7 +971,7 @@ class GitFat(object):
 
         # Write placeholder to index
         # outstream is a binary buffer, so encode string to UTF-8 bytes
-        outstream.write(self._encode(digest, size).encode('UTF-8'))
+        outstream.write(self._get_placeholder(digest, size).encode('UTF-8'))
 
     def filter_clean(self, cur_file, **unused_kwargs):
         '''
