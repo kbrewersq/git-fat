@@ -68,7 +68,7 @@ def git(cliargs, *args, **kwargs):
     return subprocess.Popen(['git'] + cliargs, *args, **kwargs)
 
 
-def debug_check_output(args):
+def debug_check_output(args, **kwargs):
     if GIT_FAT_LOG_FILE and "--failfast" in sys.argv:
         # Flush any prior logger warning/error/critical to the log file
         # which is being checked by unit tests.
@@ -79,7 +79,7 @@ def debug_check_output(args):
         for i, v in enumerate(args):
             args[i] = v.replace("\x00", r"\x00")
         logger.debug('{}'.format(' '.join(args2)))
-    return subprocess.check_output(args)
+    return subprocess.check_output(args, **kwargs)
 
 
 def mkdir_p(path):
