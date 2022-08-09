@@ -1141,6 +1141,7 @@ class GitFat(object):
         This method prevents fat from hijacking glob matches that are old
         '''
         # If the file doesn't exist in the immediately previous revision, add it
+        # Get the results as bytes
         showfile = git(['show', 'HEAD:{0}'.format(filename)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         blockiter, is_fatfile = self._decode(showfile.stdout)
