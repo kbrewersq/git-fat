@@ -926,7 +926,7 @@ class GitFat(object):
                 outstream.write(block)
         else:
             logger.info('git-fat filter-smudge: not a managed file')
-            cat_iter(blockiter, sys.stdout)
+            cat_iter(blockiter, sys.stdout.buffer)
 
     def _filter_clean(self, instream, outstream):
         '''
@@ -979,18 +979,20 @@ class GitFat(object):
                 "It is not a new file and is not managed by git-fat"
             )
             # Git needs something, so we cat stdin to stdout
-            cat(sys.stdin, sys.stdout)
+            cat(sys.stdin.buffer, sys.stdout.buffer)
         else:  # We clean the file
             if cur_file:
                 logger.info("Adding {0}".format(cur_file))
-            self._filter_clean(sys.stdin, sys.stdout)
+            # Py3 sys.stdin|out operate on str, so we access the
+            # underlying buffers to get a bytes stream instead.
+            self._filter_clean(sys.stdin.buffer, sys.stdout.buffer)
 
     def filter_smudge(self, **unused_kwargs):
         '''
         Public command to do the smudge (should only be called by git)
         '''
         logger.debug("SMUDGE: unused_kwargs={}".format(unused_kwargs))
-        self._filter_smudge(sys.stdin, sys.stdout)
+        self._filter_smudge(sys.stdin.buffer, sys.stdout.buffer)
 
     def find(self, size, **unused_kwargs):
         '''
