@@ -761,7 +761,7 @@ class GitFat(object):
         Produce str repr of file to be stored in repo.
         '''
         # 20 chars can hold 64-bit integers.
-        return self._format.format(cookie=self._cookie, digest=digest, size=size)
+        return self._format.format(cookie=self._cookie.decode(), digest=digest, size=size)
 
     def _decode(self, stream):
         '''
