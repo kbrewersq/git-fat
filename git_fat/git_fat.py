@@ -5,11 +5,11 @@
 
 import hashlib
 import os
-import subprocess as sub
+import subprocess
 import sys
 import tempfile
 import warnings
-import configparser as cfgparser
+import configparser
 import logging as _logging  # Use logger.error(), not logging.error()
 import shutil
 import argparse
@@ -56,7 +56,7 @@ GIT_SSH = os.getenv("GIT_SSH")
 
 
 def git(cliargs, *args, **kwargs):
-    ''' Calls git commands with Popen arguments '''
+    '''Calls git commands with Popen arguments'''
     if GIT_FAT_LOG_FILE and "--failfast" in sys.argv:
         # Flush any prior logger warning/error/critical to the log file
         # which is being checked by unit tests.
@@ -65,10 +65,10 @@ def git(cliargs, *args, **kwargs):
     if GIT_FAT_LOG_LEVEL == _logging.DEBUG:
         logger.debug('{}'.format(' '.join(['git'] + cliargs))
                      + ' ({}, {})'.format(args, kwargs))
-    return sub.Popen(['git'] + cliargs, *args, **kwargs)
+    return subprocess.Popen(['git'] + cliargs, *args, **kwargs)
 
 
-def check_output2(args):
+def debug_check_output(args):
     if GIT_FAT_LOG_FILE and "--failfast" in sys.argv:
         # Flush any prior logger warning/error/critical to the log file
         # which is being checked by unit tests.
@@ -79,11 +79,7 @@ def check_output2(args):
         for i, v in enumerate(args):
             args[i] = v.replace("\x00", r"\x00")
         logger.debug('{}'.format(' '.join(args2)))
-    return original_check_output(args)
-
-
-original_check_output = sub.check_output
-sub.check_output = check_output2
+    return subprocess.check_output(args)
 
 
 def mkdir_p(path):
@@ -169,7 +165,7 @@ def gitconfig_get(name, cfgfile=None):
     if cfgfile is not None:
         args += ['--file', cfgfile]
     args.append(name)
-    p = git(args, stdout=sub.PIPE)
+    p = git(args, stdout=subprocess.PIPE)
     output = p.communicate()[0].strip()
     if p.returncode != 0:
         return ''
@@ -182,13 +178,13 @@ def gitconfig_set(name, value, cfgfile=None):
     if cfgfile is not None:
         args += ['--file', cfgfile]
     args += [name, value]
-    sub.check_call(args)
+    subprocess.check_call(args)
 
 
 def _config_path(path=None):
     try:
-        root = sub.check_output('git rev-parse --show-toplevel'.split()).strip()
-    except sub.CalledProcessError:
+        root = debug_check_output('git rev-parse --show-toplevel'.split()).strip()
+    except subprocess.CalledProcessError:
         raise RuntimeError('git-fat must be run from a git directory')
     default_path = os.path.join(root, '.gitfat')
     path = path or default_path
@@ -197,8 +193,8 @@ def _config_path(path=None):
 
 def _obj_dir():
     try:
-        gitdir = sub.check_output('git rev-parse --git-dir'.split()).strip()
-    except sub.CalledProcessError:
+        gitdir = debug_check_output('git rev-parse --git-dir'.split()).strip()
+    except subprocess.CalledProcessError:
         raise RuntimeError('git-fat must be run from a git directory')
     objdir = os.path.join(gitdir, 'fat', 'objects')
     return objdir
@@ -400,7 +396,7 @@ class RSyncBackend(BackendInterface):
         rsync = self._rsync(push=False)
         logger.debug("rsync pull command: {}".format(" ".join(rsync)))
         try:
-            p = sub.Popen(rsync, stdin=sub.PIPE)
+            p = subprocess.Popen(rsync, stdin=subprocess.PIPE)
         except OSError:
             # re-raise with a more useful message
             raise OSError('Error running "%s"' % " ".join(rsync))
@@ -412,7 +408,7 @@ class RSyncBackend(BackendInterface):
     def push_files(self, file_list):
         rsync = self._rsync(push=True)
         logger.debug("rsync push command: {}".format(" ".join(rsync)))
-        p = sub.Popen(rsync, stdin=sub.PIPE)
+        p = subprocess.Popen(rsync, stdin=subprocess.PIPE)
         p.communicate(input='\x00'.join(file_list))
         # TODO: fix for success check
         return True
@@ -614,15 +610,15 @@ class AWS_S3Backend(BackendInterface):
     def read_credentials_from_file(self, file_path, section):
         if not os.path.exists(file_path):
             raise RuntimeError("AWS authentication file '%s' not found" % file_path)
-        parser = cfgparser.ConfigParser()
+        parser = configparser.ConfigParser()
         parser.read(file_path)
         try:
             return (parser.get(section, AWS_S3Backend.AWS_ACCESS_KEY),
                     parser.get(section, AWS_S3Backend.AWS_ACCESS_SECRET_KEY))
-        except cfgparser.NoSectionError:
+        except configparser.NoSectionError:
             raise RuntimeError(
                 "AWS authentication file '%s' does not have section '%s'" % (file_path, section))
-        except cfgparser.NoOptionError:
+        except configparser.NoOptionError:
             raise RuntimeError("AWS authentication file section '%s' does not have proper "
                 "keys setup (%s, and %s)" % (file_path,
                 AWS_S3Backend.AWS_ACCESS_KEY,
@@ -831,7 +827,7 @@ class GitFat(object):
         args = ['--all'] if self.full_history else ['--no-walk', rev]
 
         # Get all the git objects in the current revision and in history if --all is specified
-        revlist = git('rev-list --objects'.split() + args, stdout=sub.PIPE)
+        revlist = git('rev-list --objects'.split() + args, stdout=subprocess.PIPE)
         # Grab only the first column.  Tried doing this in python but because of the way that
         # subprocess.PIPE buffering works, I was running into memory issues with larger repositories
         # plugging pipes to other subprocesses appears to not have the memory buffer issue
@@ -840,9 +836,9 @@ class GitFat(object):
             awk_tool = 'git-fat_gawk.exe'
         else:
             awk_tool = 'awk'
-        awk = sub.Popen([awk_tool, '{print $1}'], stdin=revlist.stdout, stdout=sub.PIPE)
+        awk = subprocess.Popen([awk_tool, '{print $1}'], stdin=revlist.stdout, stdout=subprocess.PIPE)
         # Read the objects and print <sha> <type> <size>
-        catfile = git('cat-file --batch-check'.split(), stdin=awk.stdout, stdout=sub.PIPE)
+        catfile = git('cat-file --batch-check'.split(), stdin=awk.stdout, stdout=subprocess.PIPE)
 
         for line in catfile.stdout:
             objhash, objtype, size = line.split()
@@ -880,7 +876,7 @@ class GitFat(object):
             # files are of blob type
             if objtype == 'blob' and int(size) == self._magiclen:
                 # Read the actual file contents
-                readfile = git(['cat-file', '-p', objhash], stdout=sub.PIPE)
+                readfile = git(['cat-file', '-p', objhash], stdout=subprocess.PIPE)
                 digest = self._get_digest(readfile.stdout)
                 if digest:
                     managed[objhash] = digest
@@ -903,7 +899,7 @@ class GitFat(object):
         '''
         patterns = patterns or []
         # Null-terminated for proper file name handling (spaces)
-        for fname in sub.check_output(['git', 'ls-files', '-z'] + patterns).split('\x00')[:-1]:
+        for fname in debug_check_output(['git', 'ls-files', '-z'] + patterns).split('\x00')[:-1]:
             if not os.path.exists(fname):
                 continue
             st = os.lstat(fname)
@@ -1021,12 +1017,12 @@ class GitFat(object):
 
     def _get_old_gitattributes(self):
         """ Get the last .gitattributes file in HEAD, and return it """
-        ls_ga = git('ls-files -s .gitattributes'.split(), stdout=sub.PIPE)
+        ls_ga = git('ls-files -s .gitattributes'.split(), stdout=subprocess.PIPE)
         lsout = ls_ga.stdout.read().strip()
         ls_ga.wait()
         if lsout:  # Always try to get the old gitattributes
             ga_mode, ga_hash, ga_stno, _ = self._parse_ls_files(lsout)
-            ga_cat = git('cat-file blob {0}'.format(ga_hash).split(), stdout=sub.PIPE)
+            ga_cat = git('cat-file blob {0}'.format(ga_hash).split(), stdout=subprocess.PIPE)
             old_ga = ga_cat.stdout.read().splitlines()
             ga_cat.wait()
         else:
@@ -1041,8 +1037,8 @@ class GitFat(object):
         """ Find the previous gitattributes file, and append to it """
 
         old_ga, ga_mode, ga_stno = self._get_old_gitattributes()
-        ga_hashobj = git('hash-object -w --stdin'.split(), stdin=sub.PIPE,
-                         stdout=sub.PIPE)
+        ga_hashobj = git('hash-object -w --stdin'.split(), stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE)
         # Add lines to the .gitattributes file
         new_ga = old_ga + ['{0} filter=fat -text'.format(f) for f in newfiles]
         stdout, _ = ga_hashobj.communicate('\n'.join(new_ga) + '\n')
@@ -1058,8 +1054,8 @@ class GitFat(object):
         cleanedobj_hash = os.path.join(workdir, blobhash)
         # if it hasn't already been cleaned
         if not os.path.exists(cleanedobj_hash):
-            catfile = git('cat-file blob {0}'.format(blobhash).split(), stdout=sub.PIPE)
-            hashobj = git('hash-object -w --stdin'.split(), stdin=sub.PIPE, stdout=sub.PIPE)
+            catfile = git('cat-file blob {}'.format(blobhash).split(), stdout=subprocess.PIPE)
+            hashobj = git('hash-object -w --stdin'.split(), stdin=subprocess.PIPE, stdout=subprocess.PIPE)
             self._filter_clean(catfile.stdout, hashobj.stdin)
             hashobj.stdin.close()
             objhash = hashobj.stdout.read().strip()
@@ -1073,15 +1069,15 @@ class GitFat(object):
         return mode, objhash, stageno, filename
 
     def index_filter(self, filelist, add_gitattributes=True, **unused_kwargs):
-        gitdir = sub.check_output('git rev-parse --git-dir'.split()).strip()
+        gitdir = debug_check_output('git rev-parse --git-dir'.split()).strip()
         workdir = os.path.join(gitdir, 'fat', 'index-filter')
         mkdir_p(workdir)
 
         with open(filelist, 'rb') as excludes:
             files_to_exclude = excludes.read().splitlines()
 
-        ls_files = git('ls-files -s'.split(), stdout=sub.PIPE)
-        uip = git('update-index --index-info'.split(), stdin=sub.PIPE)
+        ls_files = git('ls-files -s'.split(), stdout=subprocess.PIPE)
+        uip = git('update-index --index-info'.split(), stdin=subprocess.PIPE)
 
         newfiles = []
         for line in ls_files.stdout:
@@ -1140,7 +1136,7 @@ class GitFat(object):
                 to_checkout.append(fname)
             elif show_orphans:
                 print('Data unavailable: %s %s' % (digest, fname))
-        sub.check_call(['git', 'checkout-index', '--index', '--force'] + to_checkout)
+        subprocess.check_call(['git', 'checkout-index', '--index', '--force'] + to_checkout)
 
     def can_clean_file(self, filename):
         '''
@@ -1148,7 +1144,7 @@ class GitFat(object):
         This method prevents fat from hijacking glob matches that are old
         '''
         # If the file doesn't exist in the immediately previous revision, add it
-        showfile = git(['show', 'HEAD:{0}'.format(filename)], stdout=sub.PIPE, stderr=sub.PIPE)
+        showfile = git(['show', 'HEAD:{0}'.format(filename)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         blockiter, is_fatfile = self._decode(showfile.stdout)
 
@@ -1225,14 +1221,14 @@ def _get_options(config, backend, cfg_file_path):
     """ returns the options for a backend in dictionary form """
     try:
         opts = dict(config.items(backend))
-    except cfgparser.NoSectionError:
+    except configparser.NoSectionError:
         err = "No section found in {} for backend {}".format(cfg_file_path, backend)
         raise RuntimeError(err)
     return opts
 
 
 def _read_config(cfg_file_path=None):
-    config = cfgparser.ConfigParser()
+    config = configparser.ConfigParser()
     if not os.path.exists(cfg_file_path):
         # Can't continue, but this isn't unusual
         logger.warning("This does not appear to be a repository managed by git-fat. "
@@ -1240,7 +1236,7 @@ def _read_config(cfg_file_path=None):
         sys.exit(0)
     try:
         config.read(cfg_file_path)
-    except cfgparser.Error:  # TODO: figure out what to catch here
+    except configparser.Error:  # TODO: figure out what to catch here
         raise RuntimeError("Error reading or parsing configfile: {}".format(cfg_file_path))
     return config
 
@@ -1252,7 +1248,7 @@ def _parse_config(backend=None, cfg_file_path=None):
     if backend is None:
         try:
             backends = config.sections()
-        except cfgparser.Error:
+        except configparser.Error:
             raise RuntimeError("Error reading or parsing configfile: {}".format(cfg_file_path))
         if not backends:  # e.g. empty file
             raise RuntimeError("No backends configured in config: {}".format(cfg_file_path))
