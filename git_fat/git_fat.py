@@ -165,7 +165,7 @@ def gitconfig_get(name, cfgfile=None):
     if cfgfile is not None:
         args += ['--file', cfgfile]
     args.append(name)
-    p = git(args, stdout=subprocess.PIPE)
+    p = git(args, stdout=subprocess.PIPE, text=True)
     output = p.communicate()[0].strip()
     if p.returncode != 0:
         return ''
