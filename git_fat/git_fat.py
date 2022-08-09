@@ -2,19 +2,19 @@
 # -*- mode:python -*-
 
 
+import argparse
+import configparser
 import hashlib
+import logging as _logging  # Use logger.error(), not logging.error()
 import os
+import platform
+import shutil
+import stat
 import subprocess
 import sys
 import tempfile
-import warnings
-import configparser
-import logging as _logging  # Use logger.error(), not logging.error()
-import shutil
-import argparse
-import platform
-import stat
 import threading
+import warnings
 
 try:
     import botocore
@@ -205,7 +205,9 @@ def _obj_dir():
 
 def http_get(baseurl, filename, user=None, password=None):
     """Returns file descriptor for http file stream, catches urllib2 errors"""
-    import urllib.request, urllib.error, urllib.parse
+    import urllib.error
+    import urllib.parse
+    import urllib.request
 
     try:
         print("Downloading: {0}".format(filename))
