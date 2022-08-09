@@ -183,21 +183,19 @@ def gitconfig_set(name, value, cfgfile=None):
 
 def _config_path(path=None):
     try:
-        root = debug_check_output('git rev-parse --show-toplevel'.split()).strip()
+        root = debug_check_output('git rev-parse --show-toplevel'.split(), text=True).strip()
     except subprocess.CalledProcessError:
         raise RuntimeError('git-fat must be run from a git directory')
     default_path = os.path.join(root, '.gitfat')
-    path = path or default_path
-    return path
+    return path or default_path
 
 
 def _obj_dir():
     try:
-        gitdir = debug_check_output('git rev-parse --git-dir'.split()).strip()
+        gitdir = debug_check_output('git rev-parse --git-dir'.split(), text=True).strip()
     except subprocess.CalledProcessError:
         raise RuntimeError('git-fat must be run from a git directory')
-    objdir = os.path.join(gitdir, 'fat', 'objects')
-    return objdir
+    return os.path.join(gitdir, 'fat', 'objects')
 
 
 def http_get(baseurl, filename, user=None, password=None):
@@ -899,7 +897,8 @@ class GitFat(object):
         '''
         patterns = patterns or []
         # Null-terminated for proper file name handling (spaces)
-        for fname in debug_check_output(['git', 'ls-files', '-z'] + patterns).split('\x00')[:-1]:
+        # Drops the final, empty string, result
+        for fname in debug_check_output(['git', 'ls-files', '-z'] + patterns, text=True).split('\x00')[:-1]:
             if not os.path.exists(fname):
                 continue
             st = os.lstat(fname)
@@ -1069,7 +1068,7 @@ class GitFat(object):
         return mode, objhash, stageno, filename
 
     def index_filter(self, filelist, add_gitattributes=True, **unused_kwargs):
-        gitdir = debug_check_output('git rev-parse --git-dir'.split()).strip()
+        gitdir = debug_check_output('git rev-parse --git-dir'.split(), text=True).strip()
         workdir = os.path.join(gitdir, 'fat', 'index-filter')
         mkdir_p(workdir)
 
