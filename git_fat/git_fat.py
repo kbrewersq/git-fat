@@ -728,15 +728,16 @@ class GitFat(object):
         self.full_history = full_history
         self.rev = None  # Unused
         self.objdir = _obj_dir()
-        self._cookie = '#$# git-fat '
-        self._format = self._cookie + '{digest} {size:20d}\n'
+        # Cookie is used mostly in bytes operations, so store it as bytes
+        self._cookie = b'#$# git-fat '
+        self._format = '{cookie}{digest} {size:20d}\n'
 
         # Legacy format support below, need to actually check the version once/if we have more than 2
         if os.environ.get('GIT_FAT_VERSION'):
-            self._format = self._cookie + '{digest}\n'
+            self._format = '{cookie}{digest}\n'
 
         # considers the git-fat version when generating the magic length
-        def _ml(fn): return len(fn(hashlib.sha1('dummy').hexdigest(), 5))
+        def _ml(fn): return len(fn(hashlib.sha1(b'dummy').hexdigest(), 5))
         self._magiclen = _ml(self._encode)
 
         self.configure()
@@ -763,9 +764,10 @@ class GitFat(object):
 
     def _encode(self, digest, size):
         '''
-        Produce representation of file to be stored in repository. 20 characters can hold 64-bit integers.
+        Produce str repr of file to be stored in repo.
         '''
-        return self._format.format(digest=digest, size=size)
+        # 20 chars can hold 64-bit integers.
+        return self._format.format(cookie=self._cookie, digest=digest, size=size)
 
     def _decode(self, stream):
         '''
