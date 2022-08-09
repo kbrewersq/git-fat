@@ -394,7 +394,7 @@ class RSyncBackend(BackendInterface):
         rsync = self._rsync(push=False)
         logger.debug("rsync pull command: {}".format(" ".join(rsync)))
         try:
-            p = subprocess.Popen(rsync, stdin=subprocess.PIPE)
+            p = subprocess.Popen(rsync, stdin=subprocess.PIPE, text=True)
         except OSError:
             # re-raise with a more useful message
             raise OSError('Error running "%s"' % " ".join(rsync))
@@ -406,7 +406,7 @@ class RSyncBackend(BackendInterface):
     def push_files(self, file_list):
         rsync = self._rsync(push=True)
         logger.debug("rsync push command: {}".format(" ".join(rsync)))
-        p = subprocess.Popen(rsync, stdin=subprocess.PIPE)
+        p = subprocess.Popen(rsync, stdin=subprocess.PIPE, text=True)
         p.communicate(input='\x00'.join(file_list))
         # TODO: fix for success check
         return True
