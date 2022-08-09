@@ -790,7 +790,7 @@ class GitFat(object):
 
     def _get_digest(self, stream):
         '''
-        Returns digest if stream is fatfile placeholder or None if not
+        Returns digest str if stream is a fatfile placeholder or None if not
         '''
         # DONT EVER CALL THIS FUNCTION FROM FILTERS, IT DISCARDS THE FIRST
         # BLOCK OF THE INPUT STREAM.  IT IS ONLY MEANT TO CHECK THE STATUS
@@ -799,7 +799,7 @@ class GitFat(object):
         if fatfile:
             block = next(stream)  # read the first block
             digest = block.split()[2]
-            return digest
+            return digest.decode()
         return None
 
     def _cached_objects(self):
@@ -825,7 +825,7 @@ class GitFat(object):
         args = ['--all'] if self.full_history else ['--no-walk', rev]
 
         # Get all the git objects in the current revision and in history if --all is specified
-        revlist = git('rev-list --objects'.split() + args, stdout=subprocess.PIPE)
+        revlist = git('rev-list --objects'.split() + args, stdout=subprocess.PIPE, text=True)
         # Grab only the first column.  Tried doing this in python but because of the way that
         # subprocess.PIPE buffering works, I was running into memory issues with larger repositories
         # plugging pipes to other subprocesses appears to not have the memory buffer issue
@@ -834,9 +834,9 @@ class GitFat(object):
             awk_tool = 'git-fat_gawk.exe'
         else:
             awk_tool = 'awk'
-        awk = subprocess.Popen([awk_tool, '{print $1}'], stdin=revlist.stdout, stdout=subprocess.PIPE)
+        awk = subprocess.Popen([awk_tool, '{print $1}'], stdin=revlist.stdout, stdout=subprocess.PIPE, text=True)
         # Read the objects and print <sha> <type> <size>
-        catfile = git('cat-file --batch-check'.split(), stdin=awk.stdout, stdout=subprocess.PIPE)
+        catfile = git('cat-file --batch-check'.split(), stdin=awk.stdout, stdout=subprocess.PIPE, text=True)
 
         for line in catfile.stdout:
             objhash, objtype, size = line.split()
@@ -852,7 +852,7 @@ class GitFat(object):
         # full_history implies --all
         args = ['--all'] if self.full_history else ['--no-walk', rev]
 
-        revlist = git('rev-list --objects'.split() + args, stdout=sub.PIPE)
+        revlist = git('rev-list --objects'.split() + args, stdout=subprocess.PIPE, text=True)
         for line in revlist.stdout:
             hashobj = line.strip()
             # Revlist prints all objects (commits, trees, blobs) but blobs have the file path
@@ -867,15 +867,14 @@ class GitFat(object):
         revlist.wait()
 
     def _managed_files(self, **unused_kwargs):
-        revlistgen = self._rev_list()
         # Find any objects that are git-fat placeholders which are tracked in the repository
         managed = {}
-        for objhash, objtype, size in revlistgen:
+        for objhash, objtype, size in self._rev_list():
             # files are of blob type
             if objtype == 'blob' and int(size) == self._magiclen:
-                # Read the actual file contents
-                readfile = git(['cat-file', '-p', objhash], stdout=subprocess.PIPE)
-                digest = self._get_digest(readfile.stdout)
+                # Read the actual file contents, as bytes
+                process = git(['cat-file', '-p', objhash], stdout=subprocess.PIPE)
+                digest = self._get_digest(process.stdout)
                 if digest:
                     managed[objhash] = digest
 
@@ -888,8 +887,7 @@ class GitFat(object):
 
         # return a dict(git-fat hash -> filename)
         # git's objhash are the keys in `managed` and `filedict`
-        ret = dict((j, filedict[i]) for i, j in managed.iteritems())
-        return ret
+        return dict((d, filedict[o]) for o, d in managed.items())
 
     def _orphan_files(self, patterns=None):
         '''
@@ -997,11 +995,9 @@ class GitFat(object):
         '''
         Find any files over size threshold in the repository.
         '''
-        revlistgen = self._rev_list()
         # Find any objects that are git-fat placeholders which are tracked in the repository
         objsizedict = {}
-        for objhash, objtype, objsize in revlistgen:
-            # files are of blob type
+        for objhash, objtype, objsize in self._rev_list():
             if objtype == 'blob' and int(objsize) > size:
                 objsizedict[objhash] = objsize
         for objhash, objpath in self._find_paths(list(objsizedict.keys())):
