@@ -963,8 +963,9 @@ class GitFat(object):
             logger.info('git-fat filter-clean: caching to {}'.format(objfile))
 
         # Write placeholder to index
-        # outstream is a binary buffer, so encode string to UTF-8 bytes
-        outstream.write(self._get_placeholder(digest, size).encode('UTF-8'))
+        # outstream is a binary buffer, so encode string to system
+        # locale's encoding as bytes
+        outstream.write(self._get_placeholder(digest, size).encode())
 
     def filter_clean(self, cur_file, **unused_kwargs):
         '''
