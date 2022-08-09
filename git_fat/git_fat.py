@@ -1026,8 +1026,7 @@ class GitFat(object):
         return old_ga, ga_mode, ga_stno
 
     def _update_index(self, uip, mode, content, stageno, filename):
-        fmt = '{0} {1} {2}\t{3}\n'
-        uip.stdin.write(fmt.format(mode, content, stageno, filename))
+        uip.stdin.write(f'{mode} {content} {stageno}\t{filename}\n')
 
     def _add_gitattributes(self, newfiles, unused_update_index):
         """ Find the previous gitattributes file, and append to it """
@@ -1050,17 +1049,17 @@ class GitFat(object):
         cleanedobj_hash = os.path.join(workdir, blobhash)
         # if it hasn't already been cleaned
         if not os.path.exists(cleanedobj_hash):
-            catfile = git('cat-file blob {}'.format(blobhash).split(), stdout=subprocess.PIPE)
+            catfile = git(f'cat-file blob {blobhash}'.split(), stdout=subprocess.PIPE)
             hashobj = git('hash-object -w --stdin'.split(), stdin=subprocess.PIPE, stdout=subprocess.PIPE)
             self._filter_clean(catfile.stdout, hashobj.stdin)
             hashobj.stdin.close()
             objhash = hashobj.stdout.read().strip()
             catfile.wait()
             hashobj.wait()
-            with open(cleanedobj_hash, 'wb') as cleaned:
-                cleaned.write(objhash + '\n')
+            with open(cleanedobj_hash, 'w') as cleaned:
+                cleaned.write(objhash.decode() + '\n')
         else:
-            with open(cleanedobj_hash, 'rb') as cleaned:
+            with open(cleanedobj_hash, 'r') as cleaned:
                 objhash = cleaned.read().strip()
         return mode, objhash, stageno, filename
 
@@ -1072,8 +1071,8 @@ class GitFat(object):
         with open(filelist, 'rb') as excludes:
             files_to_exclude = excludes.read().splitlines()
 
-        ls_files = git('ls-files -s'.split(), stdout=subprocess.PIPE)
-        uip = git('update-index --index-info'.split(), stdin=subprocess.PIPE)
+        ls_files = git('ls-files -s'.split(), stdout=subprocess.PIPE, text=True)
+        uip = git('update-index --index-info'.split(), stdin=subprocess.PIPE, text=True)
 
         newfiles = []
         for line in ls_files.stdout:
