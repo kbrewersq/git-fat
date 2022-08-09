@@ -952,7 +952,7 @@ class GitFat(object):
         objfile = os.path.join(self.objdir, digest)
 
         if os.path.exists(objfile):
-            logger.info('git-fat filter-clean: cached file already exists {}'.format(objfile))
+            logger.info('git-fat filter-clean: cached file already exists %s', objfile)
             # Remove temp file
             delete_file(tmpname)
         else:
@@ -960,7 +960,7 @@ class GitFat(object):
             os.chmod(tmpname, int('444', 8) & ~umask())
             # Rename temp file
             move_file(tmpname, objfile)
-            logger.info('git-fat filter-clean: caching to {}'.format(objfile))
+            logger.info('git-fat filter-clean: caching to %s', objfile)
 
         # Write placeholder to index
         # outstream is a binary buffer, so encode string to system
