@@ -565,6 +565,12 @@ class AWS_S3Backend(BackendInterface):
         ff = self.kwargs.get(AWS_S3Backend.GITFAT_CONFIG_PREFIX, None)
         if ff is None:
             return self.DEFAULT_FILE_NAME_PREFIX
+        elif ff in ("''", '""'):
+            # In attempting to set an empty string for a prefix with
+            # foo="", you'll inadvertently get a value of '""' which is
+            # almost certainly not what you wanted. So check for that
+            # and just use an empty string in either quote char case.
+            return ""
         else:
             return ff
 
