@@ -27,34 +27,6 @@ except ImportError:
 _logging.basicConfig(format='%(levelname)s:%(filename)s: %(message)s')
 logger = _logging.getLogger(__name__)
 
-try:
-    from subprocess import check_output
-    del check_output  # noqa
-
-except ImportError:
-
-    def backport_check_output(*popenargs, **kwargs):
-        '''
-        Run command with arguments and return its output as a byte string.
-        Backported from Python 2.7 as it's implemented as pure python on stdlib.
-
-        >> check_output(['/usr/bin/python', '--version'])
-        Python 2.6.2
-        '''
-        process = sub.Popen(stdout=sub.PIPE, *popenargs, **kwargs)
-        output, _ = process.communicate()
-        retcode = process.poll()
-        if retcode:
-            cmd = kwargs.get("args")
-            if cmd is None:
-                cmd = popenargs[0]
-            err = sub.CalledProcessError(retcode, cmd)
-            err.output = output
-            raise err
-        return output
-
-    sub.check_output = backport_check_output
-
 __version__ = '0.5.2'
 
 BLOCK_SIZE = 4096
