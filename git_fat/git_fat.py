@@ -796,7 +796,7 @@ class GitFat(object):
 
     def _get_digest(self, stream):
         '''
-        Returns digest if stream is fatfile placeholder or '' if not
+        Returns digest if stream is fatfile placeholder or None if not
         '''
         # DONT EVER CALL THIS FUNCTION FROM FILTERS, IT DISCARDS THE FIRST
         # BLOCK OF THE INPUT STREAM.  IT IS ONLY MEANT TO CHECK THE STATUS
@@ -806,7 +806,7 @@ class GitFat(object):
             block = next(stream)  # read the first block
             digest = block.split()[2]
             return digest
-        return ''
+        return None
 
     def _cached_objects(self):
         '''
