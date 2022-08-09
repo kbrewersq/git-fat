@@ -27,7 +27,7 @@ except ImportError:
 _logging.basicConfig(format='%(levelname)s:%(filename)s: %(message)s')
 logger = _logging.getLogger(__name__)
 
-__version__ = '0.5.2'
+__version__ = '1.0.0'
 
 BLOCK_SIZE = 4096
 
