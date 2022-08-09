@@ -1013,12 +1013,12 @@ class GitFat(object):
 
     def _get_old_gitattributes(self):
         """ Get the last .gitattributes file in HEAD, and return it """
-        ls_ga = git('ls-files -s .gitattributes'.split(), stdout=subprocess.PIPE)
+        ls_ga = git('ls-files -s .gitattributes'.split(), stdout=subprocess.PIPE, text=True)
         lsout = ls_ga.stdout.read().strip()
         ls_ga.wait()
         if lsout:  # Always try to get the old gitattributes
             ga_mode, ga_hash, ga_stno, _ = self._parse_ls_files(lsout)
-            ga_cat = git('cat-file blob {0}'.format(ga_hash).split(), stdout=subprocess.PIPE)
+            ga_cat = git('cat-file blob {}'.format(ga_hash).split(), stdout=subprocess.PIPE, text=True)
             old_ga = ga_cat.stdout.read().splitlines()
             ga_cat.wait()
         else:
@@ -1034,9 +1034,9 @@ class GitFat(object):
 
         old_ga, ga_mode, ga_stno = self._get_old_gitattributes()
         ga_hashobj = git('hash-object -w --stdin'.split(), stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE)
+                         stdout=subprocess.PIPE, text=True)
         # Add lines to the .gitattributes file
-        new_ga = old_ga + ['{0} filter=fat -text'.format(f) for f in newfiles]
+        new_ga = old_ga + [f'{f} filter=fat -text' for f in newfiles]
         stdout, _ = ga_hashobj.communicate('\n'.join(new_ga) + '\n')
         return ga_mode, stdout.strip(), ga_stno, '.gitattributes'
 
