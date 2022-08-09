@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- mode:python -*-
 
-from __future__ import print_function, with_statement
+
 
 import hashlib
 import os
@@ -9,7 +9,7 @@ import subprocess as sub
 import sys
 import tempfile
 import warnings
-import ConfigParser as cfgparser
+import configparser as cfgparser
 import logging as _logging  # Use logger.error(), not logging.error()
 import shutil
 import argparse
@@ -234,20 +234,20 @@ def _obj_dir():
 
 def http_get(baseurl, filename, user=None, password=None):
     ''' Returns file descriptor for http file stream, catches urllib2 errors '''
-    import urllib2
+    import urllib.request, urllib.error, urllib.parse
     try:
         print("Downloading: {0}".format(filename))
         geturl = '/'.join([baseurl, filename])
         if user is None:
-            res = urllib2.urlopen(geturl)
+            res = urllib.request.urlopen(geturl)
         else:
-            mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
+            mgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
             mgr.add_password(None, baseurl, user, password)
-            handler = urllib2.HTTPBasicAuthHandler(mgr)
-            opener = urllib2.build_opener(handler)
+            handler = urllib.request.HTTPBasicAuthHandler(mgr)
+            opener = urllib.request.build_opener(handler)
             res = opener.open(geturl)
         return res.fp
-    except urllib2.URLError as e:
+    except urllib.error.URLError as e:
         logger.warning(e.reason + ': {0}'.format(geturl))
         return None
 
@@ -484,7 +484,7 @@ class AWS_S3Backend(BackendInterface):
                     self.client.download_fileobj(self.bucket, git_fat_obj_loc,
                                                  self.downloaded_file_fd)
                     os.chmod(self.file_path, int('444', 8) & ~umask())
-                except botocore.exceptions.ClientError, e:
+                except botocore.exceptions.ClientError as e:
                     if os.path.exists(self.file_path) and os.path.getsize(self.file_path) == 0:
                         os.unlink(self.file_path)
                     self.success = False
@@ -532,7 +532,7 @@ class AWS_S3Backend(BackendInterface):
             if transfer_num_threads <= 0:
                 raise ValueError("The transfer_num_threads value must be a positive integer")
             return transfer_num_threads
-        except ValueError, e:
+        except ValueError as e:
             raise RuntimeError("transfer_num_threads: Bad value: %s" % str(e))
 
     def get_valid_s3_bucket_name(self, kwargs):
@@ -549,10 +549,10 @@ class AWS_S3Backend(BackendInterface):
                 raise RuntimeError(
                     "Your .gitfat [%s] specified bucket does not exist in AWS S3" %
                     AWS_S3Backend.BACKEND_KEY)
-        except botocore.exceptions.EndpointConnectionError, e:
+        except botocore.exceptions.EndpointConnectionError as e:
             raise RuntimeError(
                 "Your .gitfat config contains an invalid region_name key value: %s" % str(e))
-        except botocore.exceptions.ClientError, e:
+        except botocore.exceptions.ClientError as e:
             if "InvalidAccessKeyId" in str(e):
                 raise RuntimeError(
                     "You seem not to have an valid AWS S3 access key setup: %s" % str(e))
@@ -626,7 +626,7 @@ class AWS_S3Backend(BackendInterface):
                 return self.read_credentials_from_file(
                     os.path.expanduser(AWS_S3Backend.AWS_AUTH_FILE),
                     AWS_S3Backend.AWS_AUTH_FILE_DEFAULT_CONFIG)
-        except RuntimeError, e:
+        except RuntimeError as e:
             if self.has_env_credentials:
                 logger.info('Using environment Creds')
                 return None, None
@@ -642,7 +642,7 @@ class AWS_S3Backend(BackendInterface):
     def read_credentials_from_file(self, file_path, section):
         if not os.path.exists(file_path):
             raise RuntimeError("AWS authentication file '%s' not found" % file_path)
-        parser = cfgparser.SafeConfigParser()
+        parser = cfgparser.ConfigParser()
         parser.read(file_path)
         try:
             return (parser.get(section, AWS_S3Backend.AWS_ACCESS_KEY),
@@ -686,7 +686,7 @@ class AWS_S3Backend(BackendInterface):
             else:
                 if next_file_idx_to_download >= num_files and len(threads) == 0:
                     break
-                for thread in threads.values():
+                for thread in list(threads.values()):
                     if thread.is_alive():
                         continue
                     else:
@@ -916,7 +916,7 @@ class GitFat(object):
         # filenames above, but was running into the memory buffer issue
         # Instead we just make another call to rev-list.  Takes more time, but still
         # only takes 5 seconds to traverse the entire history of a 22k commit repo
-        filedict = dict(self._find_paths(managed.keys()))
+        filedict = dict(self._find_paths(list(managed.keys())))
 
         # return a dict(git-fat hash -> filename)
         # git's objhash are the keys in `managed` and `filedict`
@@ -1034,7 +1034,7 @@ class GitFat(object):
             # files are of blob type
             if objtype == 'blob' and int(objsize) > size:
                 objsizedict[objhash] = objsize
-        for objhash, objpath in self._find_paths(objsizedict.keys()):
+        for objhash, objpath in self._find_paths(list(objsizedict.keys())):
             print(objhash, objsizedict[objhash], objpath)
 
     def _parse_ls_files(self, line):
@@ -1130,7 +1130,7 @@ class GitFat(object):
         Command to list the files by fat-digest -> gitroot relative path
         '''
         managed = self._managed_files(**kwargs)
-        for f in managed.keys():
+        for f in list(managed.keys()):
             print(f, managed.get(f))
 
     def _remove_orphan_file(self, fname):
@@ -1257,7 +1257,7 @@ def _get_options(config, backend, cfg_file_path):
 
 
 def _read_config(cfg_file_path=None):
-    config = cfgparser.SafeConfigParser()
+    config = cfgparser.ConfigParser()
     if not os.path.exists(cfg_file_path):
         # Can't continue, but this isn't unusual
         logger.warning("This does not appear to be a repository managed by git-fat. "
