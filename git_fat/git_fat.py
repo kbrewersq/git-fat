@@ -302,6 +302,8 @@ class HTTPBackend(BackendInterface):
                 continue
 
             fd, tmpname = tempfile.mkstemp(dir=self.base_dir)
+            # hash_stream has the side effect of writing bytes to
+            # the second param, so we open it in binary mode
             with os.fdopen(fd, 'wb') as tmpstream:
                 # Hash the input, write to temp file
                 digest, _ = hash_stream(blockiter, tmpstream)
@@ -442,6 +444,8 @@ class AWS_S3Backend(BackendInterface):
             self.file_name_prefix = file_prefix
 
         def download(self):
+            # boto s3 client's download_fileobj needs a binary mode
+            # file-like object
             with open(self.file_path, "wb") as self.downloaded_file_fd:
                 git_fat_obj_loc = os.path.join(self.opt_folder,
                                                "%s%s" % (self.file_name_prefix, self.file_name))
@@ -466,7 +470,9 @@ class AWS_S3Backend(BackendInterface):
                 self.err_msg = 'object already exists in fatstore: %s' % git_fat_obj_loc
                 return
             if self.success:
-                with open(self.file_path, "r") as file_content_fd:
+                # boto s3 client's download_fileobj needs a binary mode
+                # file-like object
+                with open(self.file_path, "rb") as file_content_fd:
                     print("uploading", git_fat_obj_loc)
                     self.client.upload_fileobj(file_content_fd, self.bucket, git_fat_obj_loc)
 
@@ -902,6 +908,7 @@ class GitFat(object):
             st = os.lstat(fname)
             if st.st_size != self._magiclen or os.path.islink(fname):
                 continue
+            # _get_digest wants bytes; open binary
             with open(fname, "rb") as f:
                 digest = self._get_digest(f)
             if digest:
@@ -943,6 +950,7 @@ class GitFat(object):
 
         # make temporary file for writing
         fd, tmpname = tempfile.mkstemp(dir=self.objdir)
+        # Open in binary mode, since hash_stream will write bytes to it
         tmpstream = os.fdopen(fd, 'wb')
 
         # Hash the input, write to temp file
@@ -1070,7 +1078,7 @@ class GitFat(object):
         workdir = os.path.join(gitdir, 'fat', 'index-filter')
         mkdir_p(workdir)
 
-        with open(filelist, 'rb') as excludes:
+        with open(filelist, 'r') as excludes:
             files_to_exclude = excludes.read().splitlines()
 
         ls_files = git('ls-files -s'.split(), stdout=subprocess.PIPE, text=True)
@@ -1114,6 +1122,7 @@ class GitFat(object):
         # so git checks the file size if the modified time is the same.
         # The easiest way around this is just to remove the file we want
         # to replace (since it's an orphan, it should be a placeholder)
+        # Open file in binary mode for get_digest
         with open(fname, 'rb') as f:
             recheck_digest = self._get_digest(f)  # One last sanity check
         if recheck_digest:
