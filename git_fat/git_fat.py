@@ -1011,7 +1011,7 @@ class GitFat(object):
         if fatfile:
             block = next(blockiter)  # read the first block
             digest = block.split()[2]
-            objfile = os.path.join(self.objdir, digest)
+            objfile = os.path.join(self.objdir, digest.decode())
             try:
                 with open(objfile, 'rb') as f:
                     cat(f, outstream)
