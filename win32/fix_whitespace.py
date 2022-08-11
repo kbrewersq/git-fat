@@ -13,7 +13,7 @@ def main():
     if len(sys.argv) == 2:
         fname = sys.argv[1]
         if not os.path.exists(fname):
-            print("Python file not found: %s" % sys.argv[1])
+            print(("Python file not found: %s" % sys.argv[1]))
             sys.exit(1)
     else:
         print("Invalid arguments. Usage: python fix_whitespace.py foo.py")
@@ -38,11 +38,11 @@ def fix_whitespace(fname):
     with open(fname, "wb") as fo:
         fo.write("\n".join(lines))
     if fixed or contents != original_contents:
-        print("************* %s" % os.path.basename(fname))
+        print(("************* %s" % os.path.basename(fname)))
     if fixed:
         slines = "lines" if fixed > 1 else "line"
-        print("Fixed trailing whitespace on %d %s"
-              % (fixed, slines))
+        print(("Fixed trailing whitespace on %d %s"
+              % (fixed, slines)))
     if contents != original_contents:
         print("Fixed line endings to Unix (\\n)")
 
