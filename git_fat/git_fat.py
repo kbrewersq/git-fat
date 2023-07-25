@@ -15,11 +15,13 @@ import sys
 import tempfile
 import threading
 import warnings
+import pip
 
 try:
     import botocore
 except ImportError:
-    print('If you intend to use s3 you need to add boto3 to your path')
+    print('Attempting to install botocore...')
+    pip.main(['install', 'botocore'])
     boto3 = None
     botocore = None
 
